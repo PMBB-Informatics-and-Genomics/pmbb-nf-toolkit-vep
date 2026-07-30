@@ -5,10 +5,11 @@ Documentation for VEP
 # Module Overview
 
 
-Ensembl VEP predicts the effect of your variants
+**Ensembl VEP predicts the effect of your variants** (SNPs, insertions, deletions, CNVs or structural variants) on gene transcripts and protein sequence, as well as regulatory regions. It reports reference data including gene and variant phenotype associations and population allele frequencies to facilitate variant prioritization and interpretation. This pipeline works blazingly fast by parallelizing across plugins and chunks of Input files that are then combined at the end. 
 - [Tool Paper Link for Reference](https://doi.org/10.1186/s13059-016-0974-4)
 - [Tool Documentation Link for Reference](https://useast.ensembl.org/info/docs/tools/vep/index.html#publication)
 - [Example Config File](https://github.com/PMBB-Informatics-and-Genomics/pmbb-geno-pheno-toolkit/tree/main/Example_Configs/vep_params.conf)
+- [Example Parameters File](https://github.com/PMBB-Informatics-and-Genomics/pmbb-geno-pheno-toolkit/tree/main/Example_Configs/vep_plugins.yaml)
 - [Example nextflow.config File](https://github.com/PMBB-Informatics-and-Genomics/pmbb-geno-pheno-toolkit/tree/main/Example_Configs/nextflow.config)
 
 ## Software Requirements
@@ -138,7 +139,7 @@ nextflow run $TOOLS_DIR/pmbb-nf-toolkit-vep/main.nf \
 
     * `batches_file` (Type: File Path)
 
-    * tab-separated file mapping chunks to “batches” (i.e., chromosomes, but can be any grouping). The first column contains the batches and the second are the chunks defined in 
+    * tab-separated file mapping chunks to “batches” (i.e., chromosomes, but can be any grouping). The first column contains the batches and the second are the chunks defined in `chunks_file`. All chunks assigned to the same batch will be combined. This is useful when your chromosome files are broken up and you want to combine the chunks back into chromosomes (batches). If no merging of results are desired, there will be a 1:1 ratio for all chunks and the 2 columns will be identical for all rows. 
 
     * Type: Data Table
 
@@ -169,7 +170,7 @@ nextflow run $TOOLS_DIR/pmbb-nf-toolkit-vep/main.nf \
 
     * `chunks_file` (Type: File Path)
 
-    * new-line separated list of chunk names to parallelize by. This can be chromosome numbers or 
+    * new-line separated list of chunk names to parallelize by. This can be chromosome numbers or `chromosome_chunk` names. Must be unique. The chunks should be in the input file names and  represent everything in between `input_prefix` and `input_suffix`
 
     * Type: List File
 
@@ -191,7 +192,18 @@ nextflow run $TOOLS_DIR/pmbb-nf-toolkit-vep/main.nf \
 
     * `plugins_config_file` (Type: File Path)
 
-    * yaml-formatted file containing everything needed to each plugin. All paths are local, but prefixed with 
+    * yaml-formatted file containing everything needed to each plugin. All paths are local, but prefixed with `"${vep_data_directory}”` which maps to `vep_data_directory/` directory defined in `vep_params.yaml`. 
+
+The top level contains path to `ref_fasta` and anything else you might need. 
+
+For each plugin, define 
+  • `name` - your unique name for the plugin
+  • `enabled` - `true` or `false` to enable or disable running that plugin
+  • `variables` - any variables that need to be defined and put in the command.  paths can be absolute or use ${vep_data_directory} prefix
+  • `command` - the command needed to run the plugin. This should contain the `--plugin` flag and everything else needed. Enclose variables with braces and a dollar sign for example: `${VARIABLE_NAME}` . 
+
+
+  • Can also set group_file defaults
 
     * Type: config
 
@@ -201,7 +213,19 @@ nextflow run $TOOLS_DIR/pmbb-nf-toolkit-vep/main.nf \
 
 
     ```
-    ref_fasta: "/vep_cache/fastas/Homo_sapiens_assembly38_nochr.fasta"plugins:  alphamissense:    enabled: false    command: "--plugin AlphaMissense,file=${AM_PATH}"    variables:      AM_PATH: "/vep_cache/alpha_missense/AlphaMissense_hg38.tsv.gz"  cadd:    enabled: false    command: "--plugin CADD,snv=${CADD_SNV},indels=${CADD_INDELS}"    variables:      CADD_SNV: "/vep_cache/CADD_GRCh38/whole_genome_SNVs_inclAnno.tsv.gz"      CADD_INDELS: "/vep_cache/CADD_GRCh38/gnomad.genomes.r4.0.indel_inclAnno.tsv.gz"  clinvar:    enabled: false    command: "--custom file=${CV_PATH},short_name=ClinVar,format=vcf,type=exact,fields=${CV_FIELDS}"    variables:      CV_PATH: "/vep_cache/clinvar_GRCh38/clinvar.vcf.gz"      CV_FIELDS: "CLNSIG%CLNREVSTAT%CLNDN”
+    ref_fasta: "${vep_data_directory}/fastas/Homo_sapiens_assembly38_nochr.fasta”
+    
+    plugins:
+    
+      alphamissense:
+        enabled: false
+        command: "--plugin AlphaMissense,file=${AM_PATH}”
+        variables: 
+          AM_PATH: "${vep_data_directory}/alpha_missense/AlphaMissense_hg38.tsv.gz”
+    
+      everything:
+        enabled: true
+        command: “—everything”
     ```
 ## Output Files for VEP
 
@@ -256,21 +280,38 @@ nextflow run $TOOLS_DIR/pmbb-nf-toolkit-vep/main.nf \
 ### Workflow
 
 
+* `make_group_files` (Type: Bool (Java: true or false))
+
+    * set `true` to generate BRaVa annotations and SAIGE formatted group files. Thresholds can be configured in `vep_plugins.yaml`. Requires the following columns/plugins enabled:
+• `Uploaded_variation` (core VEP output, always present)
+• `Gene` (core VEP output, always present)
+• `gnomADe_AF` (gnomad) plugin
+• `CADD_PHRED` (cadd) plugin
+• `CADD_RAW` (cadd) plugin
+• `LoF` (loftee) plugin
+• `REVEL_score` (dbnsfp) plugin — pulled from dbNSFP's bundled `DBNSFP_FEATURES`, not a standalone REVEL plugin
+• `SpliceAI_pred` (spliceai) plugin
+• `Consequence` (everything) plugin
+• `MANE_SELECT` (everything) plugin
+• `CANONICAL` (everything) plugin
+• `BIOTYPE` (everything) plugin
+• `SYMBOL` (everything) plugin
+
 * `python` (Type: File Path)
 
     * Optional Path to python. It is not included in docker/singularity container so it will use system default, which might not have pandas. 
 
 * `download_vep_cache` (Type: Bool (Java: true or false))
 
-    * Whether to download the vep_cache (fasta and cache) before starting the run. It is automatically configured to download 
+    * Whether to download the vep_cache (fasta and cache) before starting the run. It is automatically configured to download `GRCh38` assembly of `homo_sapiens`. If you want to download your own data, follow instructions on the website and make sure to define a path to the downloaded data in `vep_params.conf`. 
 
 * `batches_file` (Type: File Path)
 
-    * Tab-separated table of batches:chunks. The first column are unique batch names without spaces (for example chromosome IDs). They can be anything — it doesn’t have to match filenames or chunk lists. The second column are all the chunks from 
+    * Tab-separated table of batches:chunks. The first column are unique batch names without spaces (for example chromosome IDs). They can be anything — it doesn’t have to match filenames or chunk lists. The second column are all the chunks from `chunks_file` that belong to each batch. At the end of the run, any chunks that belong to the same batch will be merged and prefixed with the batch name. This can be used to combine chunks of chromosomes into full chromosomes or chromosomes into one monolithic results file. If no batching is needed, make batches:chunks 1:1. Can not be turned off at the moment. 
 
     * Corresponding Input File: batches_file
 
-        * tab-separated file mapping chunks to “batches” (i.e., chromosomes, but can be any grouping). The first column contains the batches and the second are the chunks defined in 
+        * tab-separated file mapping chunks to “batches” (i.e., chromosomes, but can be any grouping). The first column contains the batches and the second are the chunks defined in `chunks_file`. All chunks assigned to the same batch will be combined. This is useful when your chromosome files are broken up and you want to combine the chunks back into chromosomes (batches). If no merging of results are desired, there will be a 1:1 ratio for all chunks and the 2 columns will be identical for all rows. 
 
         * Type: Data Table
 
@@ -299,15 +340,15 @@ nextflow run $TOOLS_DIR/pmbb-nf-toolkit-vep/main.nf \
 
 * `output_directory` (Type: File Path)
 
-    * Optional Path to desired output directory. Default = 
+    * Optional Path to desired output directory. Default = `${launchDir}`. Define in `vep_params.conf`.
 
 * `chunks_file` (Type: File Path)
 
-    * newline-separated List of chunk names to run. The chunk should be everything between 
+    * newline-separated List of chunk names to run. The chunk should be everything between `input_prefix` and `input_suffix.` The filename should have the following syntax: `${input_prefix}${chunk_name}${input_suffix}` - no periods will be added between the parts. 
 
     * Corresponding Input File: chunks_file
 
-        * new-line separated list of chunk names to parallelize by. This can be chromosome numbers or 
+        * new-line separated list of chunk names to parallelize by. This can be chromosome numbers or `chromosome_chunk` names. Must be unique. The chunks should be in the input file names and  represent everything in between `input_prefix` and `input_suffix`
 
         * Type: List File
 
@@ -327,35 +368,46 @@ nextflow run $TOOLS_DIR/pmbb-nf-toolkit-vep/main.nf \
 
 * `cpu` (Type: Integer)
 
-    * Number of CPUs to use per process. Default = 1. Define in 
+    * Number of CPUs to use per process. Default = 1. Define in `vep_params.conf`.
 
 * `input_suffix` (Type: String)
 
-    * Suffix for the input files - everything that comes after the chunk name derived from 
+    * Suffix for the input files - everything that comes after the chunk name derived from `chunks_file` . Define in `vep_params.conf` . NOTE: Should include leading period, for example (`.vcf.gz`)
 
 * `input_prefix` (Type: String)
 
-    * Prefix to input filenames that come before chunk name derived from 
+    * Prefix to input filenames that come before chunk name derived from `chunks_file`. If no prefix, set to empty string `""` . Define in `vep_params.conf`
 
 * `input_directory` (Type: File Path)
 
-    * Path to input files. Define in 
+    * Path to input files. Define in `vep_params.conf`
 
 * `vep_sif` (Type: File Path)
 
-    * Path to vep singularity image. Define in 
+    * Path to vep singularity image. Define in `vep_params.conf`.
 
-* `vep_data` (Type: File Path)
+* `vep_data_directory` (Type: File Path)
 
-    * Path to directory containing local VEP annotation databases. This path will be mapped internally (singularity) to 
+    * Path to directory containing local VEP annotation databases. This path can be referenced in `vep_plugins.yaml` as `${vep_data_directory}` Define in `vep_params.conf`
 
 * `plugins_config_file` (Type: File Path)
 
-    * Path to plugins configuration YAML file. Define in 
+    * Path to plugins configuration YAML file. Define in `vep_params.conf`
 
     * Corresponding Input File: vep_plugins.yaml
 
-        * yaml-formatted file containing everything needed to each plugin. All paths are local, but prefixed with 
+        * yaml-formatted file containing everything needed to each plugin. All paths are local, but prefixed with `"${vep_data_directory}”` which maps to `vep_data_directory/` directory defined in `vep_params.yaml`. 
+
+The top level contains path to `ref_fasta` and anything else you might need. 
+
+For each plugin, define 
+  • `name` - your unique name for the plugin
+  • `enabled` - `true` or `false` to enable or disable running that plugin
+  • `variables` - any variables that need to be defined and put in the command.  paths can be absolute or use ${vep_data_directory} prefix
+  • `command` - the command needed to run the plugin. This should contain the `--plugin` flag and everything else needed. Enclose variables with braces and a dollar sign for example: `${VARIABLE_NAME}` . 
+
+
+  • Can also set group_file defaults
 
         * Type: config
 
@@ -365,6 +417,18 @@ nextflow run $TOOLS_DIR/pmbb-nf-toolkit-vep/main.nf \
 
 
         ```
-        ref_fasta: "/vep_cache/fastas/Homo_sapiens_assembly38_nochr.fasta"plugins:  alphamissense:    enabled: false    command: "--plugin AlphaMissense,file=${AM_PATH}"    variables:      AM_PATH: "/vep_cache/alpha_missense/AlphaMissense_hg38.tsv.gz"  cadd:    enabled: false    command: "--plugin CADD,snv=${CADD_SNV},indels=${CADD_INDELS}"    variables:      CADD_SNV: "/vep_cache/CADD_GRCh38/whole_genome_SNVs_inclAnno.tsv.gz"      CADD_INDELS: "/vep_cache/CADD_GRCh38/gnomad.genomes.r4.0.indel_inclAnno.tsv.gz"  clinvar:    enabled: false    command: "--custom file=${CV_PATH},short_name=ClinVar,format=vcf,type=exact,fields=${CV_FIELDS}"    variables:      CV_PATH: "/vep_cache/clinvar_GRCh38/clinvar.vcf.gz"      CV_FIELDS: "CLNSIG%CLNREVSTAT%CLNDN”
+        ref_fasta: "${vep_data_directory}/fastas/Homo_sapiens_assembly38_nochr.fasta”
+        
+        plugins:
+        
+          alphamissense:
+            enabled: false
+            command: "--plugin AlphaMissense,file=${AM_PATH}”
+            variables: 
+              AM_PATH: "${vep_data_directory}/alpha_missense/AlphaMissense_hg38.tsv.gz”
+        
+          everything:
+            enabled: true
+            command: “—everything”
         ```
 # Configuration and Advanced Workflow Files
