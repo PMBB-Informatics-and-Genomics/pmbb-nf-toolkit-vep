@@ -1,0 +1,68 @@
+<!--
+  ~ Copyright 2013-2024, Seqera Labs
+  ~
+  ~ Licensed under the Apache License, Version 2.0 (the "License");
+  ~ you may not use this file except in compliance with the License.
+  ~ You may obtain a copy of the License at
+  ~
+  ~     http://www.apache.org/licenses/LICENSE-2.0
+  ~
+  ~ Unless required by applicable law or agreed to in writing, software
+  ~ distributed under the License is distributed on an "AS IS" BASIS,
+  ~ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+  ~ See the License for the specific language governing permissions and
+  ~ limitations under the License.
+  -->
+<html>
+<head>
+<meta name="viewport" content="width=device-width, user-scalable=no, initial-scale=1, maximum-scale=1">
+</head>
+<body>
+<pre class="mermaid" style="text-align: center;">
+flowchart TB
+    subgraph " "
+    v0["Channel.of"]
+    v1["Channel.from"]
+    v2["Channel.from"]
+    v9["plugins_config"]
+    v10["cpu"]
+    v11["vep_sif"]
+    v12["vep_data"]
+    v18["Channel.fromPath"]
+    end
+    subgraph " "
+    v5["chunks_plugins_channel"]
+    v27[" "]
+    end
+    v13([run_vep_plugin])
+    v17([combine_plugin_results])
+    v26([merge_batches])
+    v3(( ))
+    v6(( ))
+    v14(( ))
+    v19(( ))
+    v0 --> v6
+    v1 --> v3
+    v1 --> v6
+    v2 --> v3
+    v2 --> v6
+    v3 --> v5
+    v9 --> v13
+    v10 --> v13
+    v11 --> v13
+    v12 --> v13
+    v6 --> v13
+    v13 --> v14
+    v14 --> v17
+    v17 --> v19
+    v18 --> v19
+    v19 --> v26
+    v26 --> v27
+
+</pre>
+<script type="module">
+  import mermaid from 'https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs';
+  mermaid.initialize({ startOnLoad: true });
+</script>
+</body>
+</html>

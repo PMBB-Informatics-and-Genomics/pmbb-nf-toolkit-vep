@@ -1,0 +1,49 @@
+vep_cache: "/vep_cache" # Internal path to the VEP cache directory
+ref_fasta: "/vep_cache/fastas/Homo_sapiens_assembly38_nochr.fasta"
+
+plugins:
+  alphamissense:
+    enabled: false
+    command: "--plugin AlphaMissense,file=${AM_PATH}"
+    variables:
+      AM_PATH: "/vep_cache/alpha_missense/AlphaMissense_hg38.tsv.gz"
+  cadd:
+    enabled: false
+    command: "--plugin CADD,snv=${CADD_SNV},indels=${CADD_INDELS}"
+    variables:
+      CADD_SNV: "/vep_cache/CADD_GRCh38/whole_genome_SNVs_inclAnno.tsv.gz"
+      CADD_INDELS: "/vep_cache/CADD_GRCh38/gnomad.genomes.r4.0.indel_inclAnno.tsv.gz"
+  clinvar:
+    enabled: false
+    command: "--custom file=${CV_PATH},short_name=ClinVar,format=vcf,type=exact,fields=${CV_FIELDS}"
+    variables:
+      CV_PATH: "/vep_cache/clinvar_GRCh38/clinvar.vcf.gz"
+      CV_FIELDS: "CLNSIG%CLNREVSTAT%CLNDN"
+  dbnsfp:
+    enabled: false
+    command: "--plugin dbNSFP,${DBNSFP_PATH},${DBNSFP_FEATURES}"
+    variables:
+      DBNSFP_PATH: "/vep_cache/dbNSFP4.9a/dbNSFP4.9a_grch38.gz"
+      DBNSFP_FEATURES: "Ensembl_transcriptid,Uniprot_acc,VEP_canonical,LRT_pred,SIFT_pred,MutationTaster_pred,Polyphen2_HDIV_pred,Polyphen2_HVAR_pred,REVEL_score"
+  gnomad:
+    enabled: false
+    command: "--plugin gnomADc,${GNOMAD_FILE}"
+    variables:
+      GNOMAD_FILE: "/vep_cache/gnomad/gnomad.ch.exomesv4.tabbed.tsv.gz"
+  loftee:
+    enabled: false
+    command: "--dir_plugins /vep_cache/Plugins --plugin LoF,loftee_path:${LOF_PATH},human_ancestor_fa:${LOF_ANC},conservation_file:${LOF_SQL},gerp_bigwig:${LOF_CON}"
+    variables:
+      LOF_PATH: "/vep_cache/loftee_GRCh38"
+      LOF_ANC: "/vep_cache/loftee_db_GRCh38/human_ancestor.fa.gz"
+      LOF_SQL: "/vep_cache/loftee_db_GRCh38/loftee.sql"
+      LOF_CON: "/vep_cache/loftee_db_GRCh38/gerp_conservation_scores.homo_sapiens.GRCh38.bw"
+  spliceai:
+    enabled: false
+    command: "--plugin SpliceAI,snv=${SNV_PATH},indel=${INDEL_PATH}"
+    variables:
+      SNV_PATH: "/vep_cache/spliceai/spliceai_scores.raw.snv.hg38.vcf.gz"
+      INDEL_PATH: "/vep_cache/spliceai/spliceai_scores.raw.indel.hg38.vcf.gz"
+  everything:
+    enabled: true
+    command: "--everything"
